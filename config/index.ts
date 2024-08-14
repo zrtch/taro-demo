@@ -4,6 +4,8 @@ import devConfig from "./dev";
 import prodConfig from "./prod";
 import Os from "os";
 import { BundleAnalyzerPlugin } from "webpack-bundle-analyzer";
+import HtmlTagsPlugin from "html-webpack-tags-plugin";
+import HtmlWebpackPlugin from "html-webpack-plugin";
 
 // https://taro-docs.jd.com/docs/next/config#defineconfig-辅助函数
 export default defineConfig(async (merge, { command, mode }) => {
@@ -74,21 +76,18 @@ export default defineConfig(async (merge, { command, mode }) => {
       },
       webpackChain(chain) {
         chain.resolve.plugin("tsconfig-paths").use(TsconfigPathsPlugin);
-        chain
-          .plugin("analyzer")
-          .use(require("webpack-bundle-analyzer").BundleAnalyzerPlugin, []);
       },
     },
     h5: {
       publicPath: "/",
       staticDirectory: "static",
       output: {
-        filename: "js/[name].[hash:8].js",
+        filename: "js/[name].[fullhash:8].js",
         chunkFilename: "js/[name].[chunkhash:8].js",
       },
       miniCssExtractPluginOption: {
         ignoreOrder: true,
-        filename: "css/[name].[hash].css",
+        filename: "css/[name].[fullhash].css",
         chunkFilename: "css/[name].[chunkhash].css",
       },
       postcss: {
@@ -104,8 +103,49 @@ export default defineConfig(async (merge, { command, mode }) => {
           },
         },
       },
+      optimization: {
+        concatenateModules: true,
+      },
       webpackChain(chain) {
         chain.resolve.plugin("tsconfig-paths").use(TsconfigPathsPlugin);
+        // 配置BundleAnalyzer分析打包文件结构
+        chain.plugin("analyzer").use(BundleAnalyzerPlugin, [
+          {
+            analyzerMode: "static",
+            openAnalyzer: true,
+            reportFilename: "bundle-report.html",
+          },
+        ]);
+        // 配置 HtmlTagsPlugin 插入外部资源文件
+        chain.plugin("html-tags").use(HtmlTagsPlugin, [
+          {
+            tags: [
+              {
+                path: "https://polyfill.alicdn.com/polyfill.min.js", // 插入的外部 JS 库
+                attributes: { type: "text/javascript" },
+              },
+            ],
+            publicPath: false, // 使用公共路径
+            append: false, // 默认为 true，表示插入的标签会被添加到 body 结束标签前
+          },
+        ]);
+        chain.plugin("html").use(HtmlWebpackPlugin, [
+          {
+            inject: true, // 自动注入打包生成的资源
+            minify: {
+              collapseWhitespace: true, // 去除多余空格
+              removeComments: true, // 去除注释
+              removeRedundantAttributes: true, // 删除冗余的属性
+              useShortDoctype: true, // 使用短的 doctype
+              removeEmptyAttributes: true, // 删除空的属性
+              removeStyleLinkTypeAttributes: true, // 删除 style 和 link 标签的 type 属性
+              keepClosingSlash: true, // 保留单标签的闭合斜线
+              minifyJS: true, // 压缩内联的 JavaScript
+              minifyCSS: true, // 压缩内联的 CSS
+              minifyURLs: true, // 压缩内联的 URL
+            },
+          },
+        ]);
       },
     },
     rn: {
